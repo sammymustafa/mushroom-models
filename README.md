@@ -1,5 +1,5 @@
 # Mushroom EDA & Predictive Modeling
-## STAT 301-2 Final Project
+#### STAT 301-2 Final Project
 
 Utilized 5-year ACS data to study, compare, and analyze the proportion/distribution of race, gender, transportation used to get to work, and occupation from each US state. Completed this EDA in R. 
 
