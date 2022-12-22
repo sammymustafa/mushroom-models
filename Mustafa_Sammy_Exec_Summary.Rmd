@@ -1,0 +1,73 @@
+---
+title: "Final Project Executive Summary"
+subtitle: "Data Science II (STAT 301-2)"
+author: "Sammy Mustafa"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    highlight: "tango"
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo = FALSE, message = FALSE}
+library(knitr)
+```
+
+# Introduction
+This data set documents various properties of mushrooms including its class, cap_shape, cap_surface, bruises, odor, gill_size, population, habitat, and other properties of its parts (as shown in the image below) of over 8,000 different mushroom samples; the main goal of this data is to display qualities of the mushroom that may be indicative of its edible or poisonous trait. 
+
+With this data set in hand, I have a couple of research questions I aim to answer: (1) What property or properties are most indicative of a mushroom being edible or poisonous? (2) What property or properties are not correlated with mushroom edibility at all? (3) What property or properties are exclusive to edible or poisonous mushrooms? 
+
+With so many predictor variables at hand, creating various models that utilize/analyze these predictor variables in various ways is crucial in order to be able to accurately predict the class of the mushroom. Comparing these models will underscore which method is most accurate in predicting the mushroom class from this data.
+<br><br>
+
+
+# EDA
+Functions were developed to properly visualize the proportions of each property in each class as well as the proportions of each class in each property. This was done in order to understand which predictor variables were more or less helpful in predicting the mushroom class.
+
+```{r, echo = FALSE}
+include_graphics("images/gill_color_class.jpg")
+```
+The graphs above depict an example of a predictor variable (gill_color) that provides good variability between the class and property that could be extrapolated in a model to predict class.
+
+
+```{r, echo = FALSE}
+include_graphics("images/veil_type_category.jpg")
+```
+The graphs above depict an example of a predictor variable (veil_type) that provides little to no variability between the class and property, subsequently being useless to models that need to detect patterns within these properties in order to accurately predict mushroom class. 
+<br><br>
+
+
+# Finding the Best Model
+Two recipes were developed to account for simple regression models as well as more complex models that require tuning. 
+```{r, echo = FALSE}
+include_graphics("images/recipes.jpg")
+```
+<br><br>
+
+The model specification, workflow, parameter grid, and resample fitting were completed for a null model, logistic regression model, random forest model, boosted tree model, and k-nearest neighbors model. These models were then compared to see which ones provided the most accuracy. 
+<br><br>
+
+```{r, echo = FALSE}
+include_graphics("images/best_models.jpg")
+```
+<br><br>
+
+```{r, echo = FALSE}
+include_graphics("images/model_accuracy.jpg")
+```
+<br>
+
+Above is the 30 models that performed with the highest accuracy as well as visual depicting the occurrence of each type of model in correlation with its accuracy. From these, we can see that all the models had very high accuracy, in which each model actually had at least one occurrence of having 100% accuracy! However, I feel as if the logistic regression model is the best because it is 100% accurate and the most simplistic out of the rest.
+<br><br>
+
+
+# Debrief & Next Steps
+By conducting an EDA on this data set, I was able to see that there were some predictor variables that may be more or less helpful in predicting whether or not a mushroom was edible or poisonous. This led to the production, utilization, and comparison of five models to see which one utilizes the predictor variables in a way to accurately predict the mushroom class. All models found conditions that enabled them to predict if a mushroom was edible or poisonous with 100% accuracy. This may be because the models found which combination of properties from the predictor variables led to uncovering the mushroom class. With this, I thought the logistic regression model was the best because of its simplicity in approaching the dataset and it still had 100% accuracy when approaching a new, different data set. 
+
+However, I think it would be interesting to conduct variable of importance tests on each model to see if the models have 100% accuracy in their predictions by taking the same or different approach. In other words, this would enable us to see if there are various different combinations of predictor variables that may underlie edible or poisonous mushrooms. While the logistic regression model seems the simplest, this would underscore the approach each model takes and thus allows for a better model selection process to be underway. 

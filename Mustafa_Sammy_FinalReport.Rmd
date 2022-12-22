@@ -1,0 +1,655 @@
+---
+title: "Final Project Report"
+subtitle: "Data Science II (STAT 301-2)"
+author: "Sammy Mustafa"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    highlight: "tango"
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo = FALSE, message = FALSE}
+# Load Packages
+library(knitr)
+library(tidyverse)
+library(tidymodels)
+library(skimr)
+library(ggplot2)
+library(kknn)
+library(doMC)
+tidymodels_prefer()
+
+# Set seed
+set.seed(58291)
+
+# Parallel Processing
+registerDoMC(cores = parallel::detectCores(logical = TRUE))
+```
+
+# Introduction
+This data set documents various properties of mushrooms including its class, cap_shape, cap_surface, bruises, odor, gill_size, population, habitat, and other properties of its parts (as shown in the image below) of over 8,000 different mushroom samples; the main goal of this data is to display qualities of the mushroom that may be indicative of its edible or poisonous trait. I picked this data set because I am very interested in fungi, particular how intelligent and connected they are with each other and the world as a whole so getting to understand them a bit better is something I hope to achieve through this data set! This data set is derived and can be downloaded from Kaggle. These are all nominal/categorical variables in which the data can be fit into certain categories, which are dependent on the variable.
+<br>
+
+```{r, echo = FALSE}
+include_graphics("images/mushroom_details.jpg")
+```
+<br>
+
+With this data set in hand, I have a couple of research questions I aim to answer: (1) What property or properties are most indicative of a mushroom being edible or poisonous? (2) What property or properties are not correlated with mushroom edibility at all? (3) What property or properties are exclusive to edible or poisonous mushrooms? 
+
+These questions will be answered best by a classification approach in which the probability of a mushroom being edible or poisonous is determined by the predictor variables provided in the data set. Thus, the response variable in this case is the class (edible or poisonous). With so many predictor variables at hand, creating various models that utilize/analyze these predictor variables in various ways is crucial in order to be able to accurately predict the class of the mushroom. Comparing these models will underscore which method is most accurate in predicting the mushroom class from this data.
+<br><br>
+
+
+# Exploratory Data Analysis
+<br>
+
+## Organization & Graph Function
+A bit of cleaning was needed to be done in order to properly use this data set for analysis. First, the names of the variables has been adjusted via the janitor package. All the variables are characters and were all converted to their full name rather than their abbreviations to avoid cross-talk between abbreviations of different variables. All of the variables had no missing data except the "stalk_root" variable, which has 2480 missing values. This is a large proportion of their values so this will be accounted for as 0 in our EDA and then predicted using our recipe.
+
+```{r, message = FALSE, results = "hide"}
+shrooms <- read_csv("data/mushrooms.csv")
+
+shrooms <-
+  shrooms %>%
+  janitor::clean_names()
+
+# class
+shrooms$class[shrooms$class == "p"] <- "poisonous"
+shrooms$class[shrooms$class == "e"] <- "edible"
+
+# cap_shape
+shrooms$cap_shape[shrooms$cap_shape == "b"] <- "bell"
+shrooms$cap_shape[shrooms$cap_shape == "c"] <- "conical"
+shrooms$cap_shape[shrooms$cap_shape == "x"] <- "convex"
+shrooms$cap_shape[shrooms$cap_shape == "f"] <- "flat"
+shrooms$cap_shape[shrooms$cap_shape == "k"] <- "knobbed"
+shrooms$cap_shape[shrooms$cap_shape == "s"] <- "sunken"
+
+# cap_surface
+shrooms$cap_surface[shrooms$cap_surface == "f"] <- "fibrous"
+shrooms$cap_surface[shrooms$cap_surface == "g"] <- "grooves"
+shrooms$cap_surface[shrooms$cap_surface == "y"] <- "scaly"
+shrooms$cap_surface[shrooms$cap_surface == "s"] <- "smooth"
+
+# cap_color
+shrooms$cap_color[shrooms$cap_color == "n"] <- "brown"
+shrooms$cap_color[shrooms$cap_color == "b"] <- "buff"
+shrooms$cap_color[shrooms$cap_color == "c"] <- "cinnamon"
+shrooms$cap_color[shrooms$cap_color == "g"] <- "gray"
+shrooms$cap_color[shrooms$cap_color == "r"] <- "green"
+shrooms$cap_color[shrooms$cap_color == "p"] <- "pink"
+shrooms$cap_color[shrooms$cap_color == "u"] <- "purple"
+shrooms$cap_color[shrooms$cap_color == "e"] <- "red"
+shrooms$cap_color[shrooms$cap_color == "w"] <- "white"
+shrooms$cap_color[shrooms$cap_color == "y"] <- "yellow"
+
+# bruises
+shrooms$bruises[shrooms$bruises == "TRUE"] <- "bruises"
+shrooms$bruises[shrooms$bruises == "FALSE"] <- "no bruises"
+
+# odor
+shrooms$odor[shrooms$odor == "a"] <- "almond"
+shrooms$odor[shrooms$odor == "l"] <- "anise"
+shrooms$odor[shrooms$odor == "c"] <- "creosote"
+shrooms$odor[shrooms$odor == "y"] <- "fishy"
+shrooms$odor[shrooms$odor == "f"] <- "foul"
+shrooms$odor[shrooms$odor == "m"] <- "musty"
+shrooms$odor[shrooms$odor == "n"] <- "none"
+shrooms$odor[shrooms$odor == "p"] <- "pungent"
+shrooms$odor[shrooms$odor == "s"] <- "spicy"
+
+# gill_attachment
+shrooms$gill_attachment[shrooms$gill_attachment == "a"] <- "attached"
+shrooms$gill_attachment[shrooms$gill_attachment == "d"] <- "descending"
+shrooms$gill_attachment[shrooms$gill_attachment == "f"] <- "free"
+shrooms$gill_attachment[shrooms$gill_attachment == "n"] <- "notched"
+
+# gill_spacing
+shrooms$gill_spacing[shrooms$gill_spacing == "c"] <- "close"
+shrooms$gill_spacing[shrooms$gill_spacing == "w"] <- "crowded"
+shrooms$gill_spacing[shrooms$gill_spacing == "d"] <- "distant"
+
+# gill_size
+shrooms$gill_size[shrooms$gill_size == "b"] <- "broad"
+shrooms$gill_size[shrooms$gill_size == "n"] <- "narrow"
+
+# gill_color
+shrooms$gill_color[shrooms$gill_color == "k"] <- "black"
+shrooms$gill_color[shrooms$gill_color == "n"] <- "brown"
+shrooms$gill_color[shrooms$gill_color == "b"] <- "buff"
+shrooms$gill_color[shrooms$gill_color == "h"] <- "chocolate"
+shrooms$gill_color[shrooms$gill_color == "g"] <- "gray"
+shrooms$gill_color[shrooms$gill_color == "r"] <- "green"
+shrooms$gill_color[shrooms$gill_color == "o"] <- "orange"
+shrooms$gill_color[shrooms$gill_color == "p"] <- "pink"
+shrooms$gill_color[shrooms$gill_color == "u"] <- "purple"
+shrooms$gill_color[shrooms$gill_color == "e"] <- "red"
+shrooms$gill_color[shrooms$gill_color == "w"] <- "white"
+shrooms$gill_color[shrooms$gill_color == "y"] <- "yellow"
+
+# stalk_shape
+shrooms$stalk_shape[shrooms$stalk_shape == "e"] <- "enlarging"
+shrooms$stalk_shape[shrooms$stalk_shape == "t"] <- "tapering"
+
+# stalk_root
+shrooms$stalk_root[shrooms$stalk_root == "b"] <- "bulbous"
+shrooms$stalk_root[shrooms$stalk_root == "c"] <- "club"
+shrooms$stalk_root[shrooms$stalk_root == "u"] <- "cup"
+shrooms$stalk_root[shrooms$stalk_root == "e"] <- "equal"
+shrooms$stalk_root[shrooms$stalk_root == "z"] <- "rhizomorphs"
+shrooms$stalk_root[shrooms$stalk_root == "r"] <- "rooted"
+shrooms$stalk_root[shrooms$stalk_root == "?"] <- NA
+
+# stalk_surface_above_ring
+shrooms$stalk_surface_above_ring[shrooms$stalk_surface_above_ring == "f"] <- "fibrous"
+shrooms$stalk_surface_above_ring[shrooms$stalk_surface_above_ring == "y"] <- "scaly"
+shrooms$stalk_surface_above_ring[shrooms$stalk_surface_above_ring == "k"] <- "silky"
+shrooms$stalk_surface_above_ring[shrooms$stalk_surface_above_ring == "s"] <- "smooth"
+
+# stalk_surface_below_ring
+shrooms$stalk_surface_below_ring[shrooms$stalk_surface_below_ring == "f"] <- "fibrous"
+shrooms$stalk_surface_below_ring[shrooms$stalk_surface_below_ring == "y"] <- "scaly"
+shrooms$stalk_surface_below_ring[shrooms$stalk_surface_below_ring == "k"] <- "silky"
+shrooms$stalk_surface_below_ring[shrooms$stalk_surface_below_ring == "s"] <- "smooth"
+
+# stalk_color_above_ring
+shrooms$stalk_color_above_ring[shrooms$stalk_color_above_ring == "n"] <- "brown"
+shrooms$stalk_color_above_ring[shrooms$stalk_color_above_ring == "b"] <- "buff"
+shrooms$stalk_color_above_ring[shrooms$stalk_color_above_ring == "c"] <- "cinnamon"
+shrooms$stalk_color_above_ring[shrooms$stalk_color_above_ring == "g"] <- "gray"
+shrooms$stalk_color_above_ring[shrooms$stalk_color_above_ring == "o"] <- "orange"
+shrooms$stalk_color_above_ring[shrooms$stalk_color_above_ring == "p"] <- "pink"
+shrooms$stalk_color_above_ring[shrooms$stalk_color_above_ring == "e"] <- "red"
+shrooms$stalk_color_above_ring[shrooms$stalk_color_above_ring == "w"] <- "white"
+shrooms$stalk_color_above_ring[shrooms$stalk_color_above_ring == "y"] <- "yellow"
+
+# stalk_color_below_ring
+shrooms$stalk_color_below_ring[shrooms$stalk_color_below_ring == "n"] <- "brown"
+shrooms$stalk_color_below_ring[shrooms$stalk_color_below_ring == "b"] <- "buff"
+shrooms$stalk_color_below_ring[shrooms$stalk_color_below_ring == "c"] <- "cinnamon"
+shrooms$stalk_color_below_ring[shrooms$stalk_color_below_ring == "g"] <- "gray"
+shrooms$stalk_color_below_ring[shrooms$stalk_color_below_ring == "o"] <- "orange"
+shrooms$stalk_color_below_ring[shrooms$stalk_color_below_ring == "p"] <- "pink"
+shrooms$stalk_color_below_ring[shrooms$stalk_color_below_ring == "e"] <- "red"
+shrooms$stalk_color_below_ring[shrooms$stalk_color_below_ring == "w"] <- "white"
+shrooms$stalk_color_below_ring[shrooms$stalk_color_below_ring == "y"] <- "yellow"
+
+# veil_type
+shrooms$veil_type[shrooms$veil_type == "p"] <- "partial"
+shrooms$veil_type[shrooms$veil_type == "u"] <- "universal"
+
+# veil_color
+shrooms$veil_color[shrooms$veil_color == "n"] <- "brown"
+shrooms$veil_color[shrooms$veil_color == "o"] <- "orange"
+shrooms$veil_color[shrooms$veil_color == "w"] <- "white"
+shrooms$veil_color[shrooms$veil_color == "y"] <- "yellow"
+
+# ring_number
+shrooms$ring_number[shrooms$ring_number == "n"] <- "none"
+shrooms$ring_number[shrooms$ring_number == "o"] <- "one"
+shrooms$ring_number[shrooms$ring_number == "t"] <- "two"
+
+# ring_type
+shrooms$ring_type[shrooms$ring_type == "c"] <- "cobwebby"
+shrooms$ring_type[shrooms$ring_type == "e"] <- "evanescent"
+shrooms$ring_type[shrooms$ring_type == "f"] <- "flaring"
+shrooms$ring_type[shrooms$ring_type == "l"] <- "large"
+shrooms$ring_type[shrooms$ring_type == "n"] <- "none"
+shrooms$ring_type[shrooms$ring_type == "p"] <- "pendant"
+shrooms$ring_type[shrooms$ring_type == "s"] <- "sheathing"
+shrooms$ring_type[shrooms$ring_type == "z"] <- "zone"
+
+# spore_print_color
+shrooms$spore_print_color[shrooms$spore_print_color == "k"] <- "black"
+shrooms$spore_print_color[shrooms$spore_print_color == "n"] <- "brown"
+shrooms$spore_print_color[shrooms$spore_print_color == "b"] <- "buff"
+shrooms$spore_print_color[shrooms$spore_print_color == "h"] <- "chocolate"
+shrooms$spore_print_color[shrooms$spore_print_color == "r"] <- "green"
+shrooms$spore_print_color[shrooms$spore_print_color == "o"] <- "orange"
+shrooms$spore_print_color[shrooms$spore_print_color == "u"] <- "purple"
+shrooms$spore_print_color[shrooms$spore_print_color == "w"] <- "white"
+shrooms$spore_print_color[shrooms$spore_print_color == "y"] <- "yellow"
+
+# population
+shrooms$population[shrooms$population == "a"] <- "abundant"
+shrooms$population[shrooms$population == "c"] <- "clustered"
+shrooms$population[shrooms$population == "n"] <- "numerous"
+shrooms$population[shrooms$population == "s"] <- "scattered"
+shrooms$population[shrooms$population == "v"] <- "several"
+shrooms$population[shrooms$population == "y"] <- "solitary"
+
+# habitat
+shrooms$habitat[shrooms$habitat == "g"] <- "grasses"
+shrooms$habitat[shrooms$habitat == "l"] <- "leaves"
+shrooms$habitat[shrooms$habitat == "m"] <- "meadows"
+shrooms$habitat[shrooms$habitat == "p"] <- "paths"
+shrooms$habitat[shrooms$habitat == "u"] <- "urba"
+shrooms$habitat[shrooms$habitat == "w"] <- "waste"
+shrooms$habitat[shrooms$habitat == "d"] <- "woods"
+
+shrooms %>%
+  skimr::skim_without_charts()
+```
+
+This allowed me to create two functions that would input the variable of interest to create graphs detailing the proportion of the two classes within each subsidiary of the mushroom property (category graph) or the proportion of each subsidiary of the mushroom property within the two mushroom classes (class graph). These visuals allow us to have a better understanding of each mushroom properties may be more or less variable in terms of being edible or poisonous, and thus may serve as hints indicating which predictor variables may be best equipped to predict mushroom class.
+<br><br>
+
+```{r, message = FALSE}
+category_graph <- function(column) {
+  arg <- match.call()
+  pars <- as.list(match.call()[-1])
+  column_name <- as.character(pars$column)
+  data <- shrooms %>% select(class, column_name)
+  data <- data[complete.cases(data),]
+  count <- count(data, data[,1:2]) %>% pivot_wider(names_from = class, values_from = n)
+  count[is.na(count)] <- 0
+  calculations <- mutate(count, total = edible + poisonous) %>%
+    mutate(edible = edible / total) %>%
+    mutate(poisonous = poisonous / total)
+  graph <- calculations[,1:3] %>%
+    pivot_longer(c(edible, poisonous), names_to = "class", values_to = "proportion") %>%
+    ggplot(aes(eval(arg$column), proportion, fill = class)) +
+    geom_col() +
+    xlab(column_name)
+  return(graph)
+}
+
+class_graph <- function(column) {
+  arg <- match.call()
+  pars <- as.list(match.call()[-1])
+  column_name <- as.character(pars$column)
+  data <- shrooms %>% select(class, column_name)
+  data <- data[complete.cases(data),]
+  count <- count(data, data[,1:2]) %>% pivot_wider(names_from = class, values_from = n)
+  count[is.na(count)] <- 0
+  calculations <- mutate(count, edible_count = sum(edible)) %>%
+    mutate(poisonous_count = sum(poisonous)) %>%
+    mutate(edible = edible / edible_count) %>%
+    mutate(poisonous = poisonous / poisonous_count)
+  graph <- calculations[,1:3] %>%
+    pivot_longer(c(edible, poisonous), names_to = "class", values_to = "proportion") %>%
+    ggplot(aes(class, proportion, fill = eval(arg$column))) +
+    geom_col() + 
+    scale_fill_discrete(column_name)
+  return(graph)
+}
+```
+
+## Data
+While I created these two types of graphs for each predictor variable (44 in total), I selected the ones that stood out the most to me and provided me with the most important information surrounding predicting class. However, I also depicted a couple of predictor variables that displayed not so useful information; while I manually selected these variables with low variability between class, they will be excluded in our model building via steps in our recipe. If interested in visuals not depicted below, they are all located in the "images" folder.
+
+
+### Useful Predictor Variables
+```{r, echo = FALSE}
+include_graphics("images/gill_color_category.jpg")
+include_graphics("images/gill_color_class.jpg")
+```
+The graphs above detail the color of the mushroom's gills. From the category graph, we could see that red and orange gills are exclusive to edible mushrooms while buff and green gills are exclusive to poisonous mushrooms. In addition, we can see some gill colors that are much more likely to be observed in edible compared to poisonous mushrooms and vice versa. From the class graph, we could see that brown and white are more likely to be observed in edible mushrooms while buff and chocolate are more likely to be seen in poisonous worms. Overall, this variability can be used in models to predict class. 
+<br><br>
+
+```{r, echo = FALSE}
+include_graphics("images/population_category.jpg")
+include_graphics("images/population_class.jpg")
+```
+The graphs above detail the population of the mushrooms. From the category graph, we could see that an abundant population is exclusive to edible mushrooms. In addition, we can see some population types that are much more likely to be observed in edible compared to poisonous mushrooms and vice versa. From the class graph, we could see that the several population type is abundant in both mushroom types but is much more prevalent for poisonous mushrooms. In addition, it seems like the edible mushroom has more variability in terms of where it can live, having a good proportion in numerous and clustered populations. Overall, this relative election of population based on class can be utilized to help models predict class.
+<br><br>
+
+```{r, echo = FALSE}
+include_graphics("images/habitat_category.jpg")
+include_graphics("images/habitat_class.jpg")
+```
+The graphs above detail the habitat of the mushrooms. From the category graph, we could see that the waste population is exclusive to edible mushrooms. In addition, we can see how some habitats are much more likely to be observed in edible compared to poisonous mushrooms and vice versa. From the class graph, we could see that the grasses and woods habitats are abundant in both mushroom types but is much more prevalent for edible mushrooms. In addition, it seems like the poisonous mushroom is more prevalent in the paths and leaves habitats. Overall, this variability can extrapolated to help predict mushroom class in several different models.
+<br><br>
+
+
+### Less Helpful Predictor Variables
+```{r, echo = FALSE}
+include_graphics("images/veil_type_category.jpg")
+include_graphics("images/veil_type_class.jpg")
+```
+The graphs above detail the mushroom veil types. The category graph shows how there is almost a 50-50 split between edible and poisonous mushrooms having the only type of veil type indicated by this predictor variable: partial veils. This, in addition to the class graph depicting how 100% of both edible and poisonous mushrooms in this data set have partial veil types, show how this predictor variable truly has no variability and provides no mechanism to accurately predict mushroom class.
+<br><br>
+
+```{r, echo = FALSE}
+include_graphics("images/veil_color_category.jpg")
+include_graphics("images/veil_color_class.jpg")
+```
+The graphs above detail mushroom veil colors. While the category graph shows us that both the brown and orange veil color is exclusive to edible mushrooms, the class graph is helpful in showing what a small proportion of edible mushrooms that these veil colors take up. With this, most edible and poisonous mushrooms have white veil colors so this predictor variable is not as helpful in predicting mushroom class.
+<br><br>
+
+```{r, echo = FALSE}
+include_graphics("images/cap_surface_category.jpg")
+include_graphics("images/cap_surface_class.jpg")
+```
+The graphs above detail mushroom cap surfaces. While the category graph shows how fibrous caps are more present in edible mushrooms and caps with grooves are exclusive to poisonous mushrooms, the class graph somewhat puts this information to the side. It can be observed that both the edible and poisonous mushrooms cap surface distributions are relatively similar and this groove cap is barely observed in the poisonous mushrooms, and is thus not providing information extremely helpful in determining mushroom class.
+<br><br>
+
+
+## Conclusion 
+From this, we can take away very important information to be used in our models. Organizing the data has allowed us to visualize the predictor variables and allowed us to hypothesize which predictor variables may be more or less useful in predicting mushroom class. Luckily, there are techniques that we will utilize in the steps involved in making our models, including specific steps in our recipes, that can do this for us. Thus, this serves more as a second confirmation that our recipes and models are working right and accurately predicting whether or not a mushroom is edible or poisonous based on various mushroom properties.
+<br><br>
+
+
+# Fitting Different Models
+Now, we can use this data to create models that can predict mushroom class in different ways. The models created, utilized, and tested are a null model, logistic regression model, random forest model, boosted tree model, and k-nearest neighbors model.
+<br>
+
+## Outcome Variable Distribution
+It is important to note/observe that there is approximately an equal amount of edible and poisonous datapoints in this data set. 
+```{r}
+ggplot(shrooms, aes(class)) +
+  geom_bar()
+```
+<br><br>
+
+
+## Splitting
+First, the data was mutated to consider the outcome variable as a factor (important for later analyses). I then used an initial split of prop = 0.75 and stratification by the target/outcome variable, "class". It is useful to use stratified sampling because it takes into account various aspects of the data by creating samples within the strata to combine as our complete sample, meaning they are considered no matter how often they appear in the data. The number of rows in the testing and training sets were verified to confirm proper splitting. Then the folds and control resamples/grids were set.
+```{r, results = "hide"}
+shrooms <- mutate(shrooms, class = factor(class))
+
+shrooms_split <- initial_split(shrooms, prop = 0.75, strata = class)           # should divide into 6093 x 23 and 2031 x 23 tibbles
+shrooms_train <- training(shrooms_split)
+shrooms_test <- testing(shrooms_split)
+
+# has correct proportion of rows from initial data (6093 and 2031)
+nrow(shrooms_train)
+nrow(shrooms_test)
+
+# has correct number of columns (same as initial data = 23)
+ncol(shrooms_train)
+ncol(shrooms_test)
+
+shrooms_folds <- vfold_cv(shrooms_train, v = 10, repeats = 5)
+keep_pred_resamples <- control_resamples(save_pred = TRUE, save_workflow = TRUE)
+keep_pred_grid <- control_grid(save_pred = TRUE, save_workflow = TRUE)
+```
+<br>
+
+## Recipe
+Two recipes were made: one for the simple regression models (null and logistic regression) and one for the models that require a tuning parameter grid. Both are the same but the latter include one-hot encoding. Both recipes use all the predictor variables to guess whether or not a mushroom is edible or poisonous. These categorical variables are converted to factors and the missing "stalk_root" data is accounted for by a step that predicts them via patterns within the other variables. In addition, near-zero variance variables, like the ones that were described in the EDA section, were excluded from the recipe to allow for better predictions to be made.
+```{r, results = "hide"}
+simple_rec <- 
+  recipe(class ~ ., data = shrooms_train) %>%                   # utilizes all variables to predict class
+  step_string2factor(all_nominal_predictors()) %>%              # changes character variables to factors
+  step_impute_mode(all_nominal_predictors()) %>%                # predicts/accounts for missing stalk_root values
+  step_novel(all_nominal_predictors()) %>%                      # handles factors with folding
+  step_dummy(all_nominal_predictors()) %>%                      # dummy encodes categorical variables
+  step_nzv(all_predictors(), freq_cut = 90/10)                  # removes anything with near-zero variance, specified
+simple_rec %>%                                                  # checking recipe, now has 40 columns
+  prep() %>%
+  bake(new_data = shrooms_train) %>%
+  view()
+
+tuning_rec <- 
+  recipe(class ~ ., data = shrooms_train) %>%                   # utilizes all variables to predict class
+  step_string2factor(all_nominal_predictors()) %>%              # changes character variables to factors
+  step_impute_mode(all_nominal_predictors()) %>%                # predicts/accounts for missing stalk_root values
+  step_novel(all_nominal_predictors()) %>%                      # handles factors with folding
+  step_dummy(all_nominal_predictors(), one_hot = TRUE) %>%      # one-hot encodes categorical variables
+  step_nzv(all_predictors(), freq_cut = 90/10)                  # removes anything with near-zero variance, specified
+tuning_rec %>%                                                  # checking recipe, now has 50 columns
+  prep() %>%
+  bake(new_data = shrooms_train) %>%
+  view()
+```
+<br>
+
+## Models Utilized
+
+### Null Model
+The null model was created as a control to see how would a random guess of whether or not a mushroom was poisonous or edible would do in respect to this data set. The model specification, workflow, and resample fitting code can be observed below.
+```{r, eval = FALSE}
+# Model Specification
+null_spec <-
+  null_model() %>% 
+  set_engine("parsnip") %>% 
+  set_mode("classification")
+
+# Workflow
+null_wflow <- 
+  workflow() %>% 
+  add_model(null_spec) %>% 
+  add_recipe(simple_rec)
+
+# Fitting to Resamples
+null_fit <- null_wflow %>% 
+  fit_resamples(
+  resamples = shrooms_folds,
+  control = keep_pred_resamples
+  )
+save(null_fit, file = "results/null_fit.rda")
+```
+
+### Logistic Regression Model
+The logistic regression model was utilized to predict mushroom classification as well. The model specification, workflow, and resample fitting code can be observed below.
+```{r, eval = FALSE}
+# Model Specification
+log_spec <-
+  logistic_reg() %>%
+  set_engine('glm')
+
+# Workflow
+log_wflow <- 
+  workflow() %>% 
+  add_model(log_spec) %>% 
+  add_recipe(simple_rec)
+
+# Fitting to Resamples
+log_fit <- log_wflow %>%
+  fit_resamples(
+    resamples = shrooms_folds,
+    control = keep_pred_resamples
+    )
+save(log_fit, file = "results/log_fit.rda")
+```
+
+### Random Forest Model
+The random forest model was also utilized to predict mushroom classification. "mtry()" and "min_n()" were tuned while a custom value of 1500 was inputted to the specification. The model specification, workflow, tuned parameter grid, and resample fitting code can be observed below. 
+```{r, eval = FALSE}
+# Model Specification
+rf_spec <-
+  rand_forest(mtry = tune(), min_n = tune(), trees = 1500) %>%
+  set_engine('ranger') %>%
+  set_mode('classification')
+
+# Workflow
+rf_wflow <- 
+  workflow() %>% 
+  add_model(rf_spec) %>% 
+  add_recipe(tuning_rec)
+
+# Tuning Parameter Grid
+rf_params <- parameters(rf_spec) %>% 
+  update(mtry = mtry(range = c(2, 25)))                             # uses 2-25 (around 1/2) of the predictor variables
+rf_grid <- grid_regular(rf_params, levels = 5)
+
+# Fitting to Resamples
+rf_fit <-
+  rf_wflow %>%
+  tune_grid(
+    resamples = shrooms_folds,
+    control = keep_pred_grid,
+    grid = rf_grid
+    )
+save(rf_fit, file = "results/rf_fit.rda")
+```
+
+### Boosted Tree Model
+The boosted tree model was also utilized to predict mushroom classification. "mtry()", "min_n()", and "learn_rate()" were tuned. The model specification, workflow, tuned parameter grid, and resample fitting code can be observed below. 
+```{r, eval = FALSE}
+# Model Specification
+bt_spec <-
+  boost_tree(mtry = tune(), min_n = tune(), learn_rate = tune()) %>%
+  set_engine('xgboost') %>%
+  set_mode('classification')
+
+# Workflow
+bt_wflow <- 
+  workflow() %>% 
+  add_model(bt_spec) %>%
+  add_recipe(tuning_rec)
+
+# Tuning Parameter Grid
+bt_params <- parameters(bt_spec) %>% 
+  update(mtry = mtry(range = c(2, 25))) %>%                   # uses 2-25 (around 1/2) of the predictor variables
+  update(learn_rate = learn_rate(range = c(-5, -0.2)))
+bt_grid <- grid_regular(bt_params, levels = 5)
+
+# Fitting to Resamples
+bt_fit <-
+  bt_wflow %>%
+  tune_grid(
+    resamples = shrooms_folds,
+    control = keep_pred_grid,
+    grid = bt_grid
+    )
+save(bt_fit, file = "results/bt_fit.rda")
+```
+
+### k-Nearest Neighbors Model
+The k-nearest tree model was also utilized to predict mushroom classification as well. "neighbors()" was tuned. The model specification, workflow, tuned parameter grid, and resample fitting code can be observed below. 
+```{r, eval = FALSE}
+# Model Specification
+k_spec <-
+  nearest_neighbor(neighbors = tune()) %>%
+  set_engine('kknn') %>%
+  set_mode('classification')
+
+# Workflow
+k_wflow <-
+  workflow() %>% 
+  add_model(k_spec) %>%
+  add_recipe(tuning_rec)
+
+# Tuning Parameter Grid
+k_params <- parameters(k_spec) %>%
+  update(neighbors = neighbors(range = c(5, 37)))
+k_grid <- grid_regular(k_params, levels = 5)
+
+# Fitting to Resamples
+k_fit <-
+  k_wflow %>%
+  tune_grid(
+    resamples = shrooms_folds, 
+    control = keep_pred_grid,
+    grid = k_grid
+    )
+save(k_fit, file = "results/k_fit.rda")
+```
+<br><br>
+
+
+# Finding the Best Model
+Various techniques were utilized to determine which model would be best in predicting mushroom class, such as "collect_metrics()", "autoplot()", and "show_best()".
+
+## Table of Most Accurate Models
+```{r}
+# Load Files
+load(file = "results/null_fit.rda")
+load(file = "results/log_fit.rda")
+load(file = "results/rf_fit.rda")
+load(file = "results/bt_fit.rda")
+load(file = "results/k_fit.rda")
+
+# Model Set
+model_set <-
+  as_workflow_set(
+    "null" = null_fit,
+    "log" = log_fit,
+    "rf" = rf_fit,
+    "bt" = bt_fit,
+    "k" = k_fit
+  )
+
+model_set %>%
+  collect_metrics() %>%
+  filter(.metric == "accuracy") %>%
+  arrange(desc(mean)) %>%
+  select(wflow_id, mean, std_err, n)
+```
+
+## Visual of Model Accuracy 
+```{r}
+model_set %>%
+  autoplot(metric = "accuracy")
+```
+
+## Best Conditions from Each Model
+
+### Logistic Regression Model
+```{r}
+show_best(log_fit, metric = "accuracy")
+```
+<br>
+
+### Random Forest Model
+```{r}
+show_best(rf_fit, metric = "accuracy")
+```
+<br>
+
+### Boosted Tree Model
+```{r}
+show_best(bt_fit, metric = "accuracy")
+```
+<br>
+
+### k-Nearest Neighbors Model
+```{r}
+show_best(k_fit, metric = "accuracy")
+```
+<br>
+
+## Selecting the Best Model
+These five models were analyzed so their performances can be compared. This allowed us to see which one(s) most accurately predicts the mushroom class based off the predictor variables. Here, we can see that that all the models, excluding the null model of course, could predict the mushroom class with 100% accuracy. While some models appear to have a variety of different conditions that allow them to achieve 100% accuracy, I think that the logistic model is the best model as it is the simplest and still gets the job done right! Thus, I employ the logistic regression model for further use.
+<br><br>
+
+
+# Fitting Model to the Testing Set
+Fitting our best model to the testing set allows us to look at this model's accuracy in predicting the mushroom class on the testing set. This serves as another indicator of the model's performance on data other than the training data set.
+
+## Accuracy of Model on Test Data
+```{r, warning = FALSE}
+# Fitting the Best Model to the Training Set
+log_spec <-
+  logistic_reg() %>%
+  set_engine('glm')
+log_wflow <- 
+  workflow() %>% 
+  add_model(log_spec) %>% 
+  add_recipe(simple_rec)
+log_fit_final <- fit(log_wflow, shrooms_train)
+
+# Looking at Accuracy
+log_pred <- predict(log_fit_final, new_data = shrooms_test)
+predicted_values <-
+  shrooms_test %>%
+  select(class) %>%
+  bind_cols(log_pred)
+
+log_acc <- accuracy(predicted_values, class, .pred_class)
+log_acc
+
+# Confusion Matrix Confirming Accuracy
+conf_mat(predicted_values, class, .pred_class)
+```
+<br>
+
+## Analysis of Model Performance
+Even on the brand-new, untouched testing data set, the logistic regression model still managed to be 100% accurate! The confusion matrix shows how every single mushroom within the testing data set was accurately predicted as either edible or poisonous. This is great!!!
+<br><br>
+
+
+# Debrief & Next Steps
+By conducting an EDA on this data set, I was able to see that there were some predictor variables that may be more or less helpful in predicting whether or not a mushroom was edible or poisonous. This led to the production, utilization, and comparison of five models to see which one utilizes the predictor variables in a way to accurately predict the mushroom class. All models found conditions that enabled them to predict if a mushroom was edible or poisonous with 100% accuracy. This may be because the models found which combination of properties from the predictor variables led to uncovering the mushroom class. With this, I thought the logistic regression model was the best because of its simplicity in approaching the dataset and it still had 100% accuracy when approaching a new, different data set. 
+
+However, I think it would be interesting to conduct variable of importance tests on each model to see if the models have 100% accuracy in their predictions by taking the same or different approach. In other words, this would enable us to see if there are various different combinations of predictor variables that may underlie edible or poisonous mushrooms. While the logistic regression model seems the simplest, this would underscore the approach each model takes and thus allows for a better model selection process to be underway. For now, we can sleep safe knowing that mushrooms can be accurately classified as edible or poisonous so whenever we find ourselves trapped in a forest and surrounded by a diverse variety of mushrooms, we can run this model on our laptops, that we randomly have on hand and is connected to wifi because this is a fun forest, and know if we can eat them so we can survive, woooo weee!
+

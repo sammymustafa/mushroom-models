@@ -1,0 +1,86 @@
+---
+title: "Final Project Codebook"
+subtitle: "Data Science II (STAT 301-2)"
+author: "Sammy Mustafa"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    highlight: "tango"
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message = FALSE, warning = FALSE}
+library(tidyverse)
+```
+<br>
+
+## Data Source
+```{r, message = FALSE}
+shrooms <- read_csv("data/mushrooms.csv")
+```
+This data set documents various properties of mushrooms including its class, cap_shape, cap_surface, bruises, odor, gill_size, population, habitat, and other properties of its parts (as shown in the image below) of over 8,000 different mushroom samples.
+<br><br>
+
+
+## Data Citation: 
+
+Kaggle, 2019, "Mushroom Classification with ANN," https://www.kaggle.com/gulsahdemiryurek/mushroom-classification-with-ann/data
+
+<br><br>
+
+
+### Variables
+All the variables within the data set are categorical and depict a physical property of the mushroom.
+
+
+**class**: if mushroom is edible or poisonous
+<br>
+**cap_shape**: shape of mushroom cap
+<br>
+**cap_surface**: surface of mushroom cap
+<br>
+**cap-color**: color of mushroom cap
+<br>
+**bruises**: if there are bruises or no bruises on the mushroom
+<br>
+**odor**: the odor of the mushroom
+<br>
+**gill_attachment**: how the mushroom's gills are attached
+<br>
+**gill_spacing**: how the mushroom's gills are spaced
+<br>
+**gill_size**: the size of the mushroom's gills
+<br>
+**gill_color**: the color of the mushroom's gills
+<br>
+**stalk_shape**: the shape of the mushroom's stalk
+<br>
+**stalk_root**: the root of the mushroom's stalk
+<br>
+**stalk_surface_above_ring**: the type of surface on the stalk above the mushroom's ring
+<br>
+**stalk_surface_below_ring**: the type of surface on the stalk below the mushroom's ring
+<br>
+**stalk_color_above_ring**: the color of the stalk above the mushroom's ring
+<br>
+**stalk_color_below_ring**: the color of the stalk below the mushroom's ring
+<br>
+**veil_type**: the type of mushroom veil
+<br>
+**veil_color**: the color of the mushroom's veil
+<br>
+**ring_number**: the number of rings the mushroom has
+<br>
+**ring_type**: the type of ring the mushroom has
+<br>
+**spore_print_color**: the color of the spores on the mushroom
+<br>
+**population**: how the mushroom grows
+<br>
+**habitat**: the habitat in which the mushroom grows
+<br>
