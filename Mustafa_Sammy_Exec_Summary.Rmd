@@ -21,7 +21,7 @@ library(knitr)
 # Introduction
 This data set documents various properties of mushrooms including its class, cap_shape, cap_surface, bruises, odor, gill_size, population, habitat, and other properties of its parts (as shown in the image below) of over 8,000 different mushroom samples; the main goal of this data is to display qualities of the mushroom that may be indicative of its edible or poisonous trait. 
 
-With this data set in hand, I have a couple of research questions I aim to answer: (1) What property or properties are most indicative of a mushroom being edible or poisonous? (2) What property or properties are not correlated with mushroom edibility at all? (3) What property or properties are exclusive to edible or poisonous mushrooms? 
+With this data set in hand, I have a couple of research questions I want to answer: (1) What property or properties are most indicative of a mushroom being edible or poisonous? (2) What property or properties are not correlated with mushroom edibility at all? (3) What property or properties are exclusive to edible or poisonous mushrooms? 
 
 With so many predictor variables at hand, creating various models that utilize/analyze these predictor variables in various ways is crucial in order to be able to accurately predict the class of the mushroom. Comparing these models will underscore which method is most accurate in predicting the mushroom class from this data.
 <br><br>
